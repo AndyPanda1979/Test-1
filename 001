@@ -1,1 +1,317 @@
+import json
+import threading
+import time
+import random
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
+import requests
+from jinja2 import Environment, FileSystemLoader
 
+SERVER_ADDRESS = ('127.0.0.1', 8000)                                    # адрес сервера
+CLIENT_ID = ''                                                          # данные для oauth на github
+CLIENT_SECRET = ''                                                      # данные для oauth на github
+
+
+loader = FileSystemLoader('templates')                                      # для jinja2 указываем папку загрузки страниц
+env = Environment(loader=loader)                                            # тоже для jinja2
+src = 'QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890'      # набор для генерации cookies
+
+
+
+connections = []                                                            # коллекция соединений для отдачи SSE
+
+
+
+# gtg -> бесконечный поток таймера, каждый раз обегает сокеты из connections и отправляет в них SSE
+def gtg():
+    """
+    Поток таймера, через каждые 3 сек обегает список подписанных на SSE сокетов в connections
+    и пишет в них сгенерированное сообщение. Если сокет не доступен, считается, что соединение разорвано
+    и сокет удаляется из списка connections
+    """
+    global connections
+    try:
+        while True:
+            if connections:
+                teststring = json.dumps({'text': 'server data is ->' + str(random.randint(0, 100))})
+                for j in connections:
+                    answer = 'data: {}\nevent: online\n\n'.format(teststring)
+                    code_answer = answer.encode('utf-8')
+                    try:
+                        j.wfile.write(code_answer)
+                    except OSError:
+                        print(
+                            'connection error, probably connection was lost, socket will be deleted from sending list')
+                        connections.remove(j)
+            time.sleep(3)
+    except KeyboardInterrupt:
+        return None
+
+"""
+Ниже блок функций, отрабатывающих по конкретным запросам
+"""
+
+
+# для пути /
+def start(u_pointer, response, separate_path):
+    """ / """
+    if u_pointer.is_authorized() is True:
+        response.send_response(200)
+        response.send_header("Connection", "close")
+        response.send_header("Content - Type", "text / html; charset = utf-8")
+        response.send_header("Content-Type", "javascript")
+        response.end_headers()
+        task = authorized_form(env, u_pointer.name)
+        response.wfile.write(task)
+    else:
+        response.send_response(200)
+        response.send_header("Connection", "close")
+        response.send_header("Content - Type", "text / html; charset = utf-8")
+        response.end_headers()
+        task = unauthorized_form(env, u_pointer.name)
+        response.wfile.write(task)
+
+
+# для пути oauth/complete
+def a_complete(u_pointer, response, separate_path):
+    """oauth/complete"""
+    get_token(separate_path, u_pointer)         # идем обратно на Github за токеном и именем пользователя
+    u_pointer.authorized = True
+    response.send_response(200)
+    response.send_header("Connection", "close")
+    response.send_header("Content - Type", "text / html; charset = utf-8")
+    response.send_header("Content-Type", "javascript")
+    response.end_headers()
+    task = authorized_form(env, u_pointer.name)
+    response.wfile.write(task)
+
+
+# для пути /oauth/logout/
+def a_logout(u_pointer, response, separate_path):
+    """Logout"""
+    u_pointer.name = 'Guest'  # устанавливаем у пользователя флаг авторизации (False) и имя (Guest)
+    u_pointer.authorized = False
+    response.send_response(200)
+    response.send_header("Connection", "close")
+    response.send_header("Content - Type", "text / html; charset = utf-8")
+    response.end_headers()
+    task = unauthorized_form(env, u_pointer.name)
+    response.wfile.write(task)
+
+
+# отдача css
+def css(u_pointer, response, separate_path):
+    """Отдача css"""
+    with open('templates/style.css', 'rb') as style:
+        data = style.read()
+        style.close()
+        response.send_response(200)
+        response.send_header("Connection", "close")
+        response.send_header("Content - Type", "text / html; charset = utf-8")
+        response.end_headers()
+        response.wfile.write(data)
+
+
+# отдача favicon
+def favicon(u_pointer, response, separate_path):
+    """отдача favicon"""
+    with open('templates/favicon.ico', 'rb') as icon:  # отправка стилей в форму неавторизованного пользователя
+        data = icon.read()
+        icon.close()
+        response.send_response(200)
+        response.send_header("Connection", "close")
+        response.end_headers()
+        response.wfile.write(data)
+
+
+# отдача SSE
+def listen(u_pointer, response, separate_path):
+    """отдача ServerSideEvents"""
+    global connections
+    response.send_response(200)
+    response.send_header("Connection", "keep-alive")  # оставляем сокет открытым
+    response.send_header("Content-type", "text/event-stream")
+    response.end_headers()
+    if response not in connections:
+        connections.append(response)  # !!! и добавляем его в список, который обегает def gtg() в отдельном потоке
+        u_pointer.listen_socket = u_pointer  #  Для привязки сокета прослушки к пользователю (не реализовано до конца)
+
+
+"""Маршруты"""
+
+ROUTES = [('/', start),
+          ('/oauth/complete/', a_complete),
+          ('/oauth/logout/', a_logout),
+          ('/style.css/', css),
+          ('/oauth/style.css/', css),
+          ('/listen/', listen),
+          ('/favicon.ico/', favicon),
+          ]
+
+
+# генератор cookies
+def generate_cookies():
+    data = ''
+    global src
+    for i in range(1, 11):
+        data += (src[random.randint(0, len(src)-1)])
+    return data
+
+
+""" СЕССИИ """
+
+
+class User:
+    index_table = {}                        # Словарь: IP адрес соединения: ссылка на объект User
+
+    def __init__(self, cookies, authorized=False, name='Guest', token='', listen_socket=None):
+        self.authorized = authorized
+        self.name = name
+        self.token = token
+        self.listen_socket = listen_socket
+        self.cookies = cookies
+        User.index_table[self.cookies] = self
+
+    def is_authorized(self):
+        if self.authorized:
+            return True
+        else:
+            return False
+
+    def get_name(self):
+        return self.name
+
+
+# get_token -> обращается в Github для токена сессии, забирает по API имя пользователя Github, обновляет данные в пользователе
+def get_token(separate_path, u_pointer):
+    global CLIENT_ID, CLIENT_SECRET
+    data = separate_path[2]
+    code = data[data.find('=')+1:]
+    res = requests.post("https://github.com/login/oauth/access_token",
+                        headers={'Accept': 'application/json'},
+                        data={'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET, 'code': code})
+    try:
+        if res.json()['access_token']:
+            u_pointer.authorized = True
+            u_pointer.token = res.json()['access_token']
+            name = requests.get('https://api.github.com/user', headers={'Authorization': 'token '+u_pointer.token})
+            u_pointer.name = name.json()['login']
+        else:
+            u_pointer.authorized = False
+            u_pointer.name = 'Guest'
+    except BaseException:
+        print('Authorization fault')
+        u_pointer.authorized = False
+        u_pointer.name = 'Guest'
+
+
+"""ФОРМЫ"""
+
+
+# authorized_form-> форма для авторизованного пользователя
+def authorized_form(env, user_name):
+    tm = env.get_template('test.html')
+    response = tm.render(name=user_name).encode('utf-8')
+    return response
+
+
+# unauthorized_form -> форма для неавторизованного пользователя
+def unauthorized_form(env, user_name):
+    tm = env.get_template('index.html')
+    response = tm.render(name=user_name).encode('utf-8')
+    return response
+
+
+# separate_parameters -> отделяет ключи от пути в запросе
+def separate_parameters(data):
+
+    """ Отделяет от запроса параметры
+        Возвращает (3):
+        (1) True - если есть параметы, None - если параметров нет;
+        (2) Путь в запросе, с добавленным /;
+        (3) Если (1) True -> строку с параметрами, если (1) None -> None
+    """
+
+    pos = data.find('?')
+    if pos == -1:
+        status = None
+        if len(data) == 1:
+            path = data
+        elif data[0] == '/' and data[1] == '?':
+            path = data
+        else:
+            path = data + '/'
+        params = None
+    else:
+        status = True
+        if data[0] == '/' and data[1] == '?':
+            path = data[:pos]
+        else:
+            path = (data[:pos])+'/'
+        params = (data[pos+1:])
+    return status, path, params
+
+
+def user_pointer(cookies):
+    if cookies in User.index_table.keys():
+        return User.index_table[cookies]
+    else:
+        print("I don't see this user before")
+
+
+# маршрутизатор
+def route(separate_path, u_pointer, response):
+    global ROUTES
+    valid_path = False
+    func = None
+    for i in ROUTES:
+        if separate_path[1] == i[0]:
+            func = i[1]
+            valid_path = True
+            break
+    if valid_path:
+        func(u_pointer, response, separate_path)
+
+
+# обработчик GET
+class HttpGet(BaseHTTPRequestHandler):
+    """ Основной Обработчик GET"""
+
+    def do_GET(self):
+        if self.headers.__contains__('cookie'):                     # Проверяем, есть ли cookie
+            u_pointer = user_pointer(self.headers['cookie'])        # Возвращаем ссылку на экземпляр сессии'
+        else:
+            self.send_response(200)
+            self.send_header("Connection", "close")                 # будем закрывать соединение
+            new_cookie = generate_cookies()                         # сгенерируем cookie
+            self.send_header("Set-Cookie", new_cookie)
+            User.__call__(new_cookie)                               # и создадим новый экземпляр сессии
+            u_pointer = user_pointer(new_cookie)                    # вернув на него ссылку
+
+        separate_path = separate_parameters(self.path)              # отделяем параметры от запроса (если есть)
+        try:
+            print('данные по сессии..', u_pointer.name, u_pointer.is_authorized())
+        except AttributeError:
+            print('проверка cookie...', self.headers['cookie'])     # столкнулся с ошибкой в ЯндексБраузер с добавление cookie, надо внимательней посмотреть
+            print(self.requestline, self.request_version)
+        route(separate_path, u_pointer, self)
+
+
+def run(server_class=ThreadingHTTPServer, handler_class=BaseHTTPRequestHandler):     # запуск сервера
+    global SERVER_ADDRESS
+    server_address = SERVER_ADDRESS
+    httpd = server_class(server_address, handler_class)
+    try:
+        print('Starting service...')
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        httpd.server_close()
+
+
+
+
+
+# запуск
+timer_gen = threading.Timer(0, gtg)     # создаем и запускаем поток gtg
+timer_gen.start()
+run(handler_class=HttpGet)              # запускаем сервер
