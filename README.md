@@ -5,7 +5,7 @@ Here is just testing results...
 2) реализации циклического буфера
 3) сортировки
 
-001:
+001:  (к скрипту папка templates с html и css)
 Тестовое задание: сделать приложение: 
 1) Сервер каждые 5 секунд генерирует число 
 2) При проходе по адресу браузер получает страницу с предложением авторизации через GitHub (https://docs.github.com/en/developers/apps/building-oauth-apps/authorizing-oauth-apps),
