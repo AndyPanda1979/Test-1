@@ -40,75 +40,115 @@ def is_even2(value):
 #***********************************************************************************************************
 
 #***********************************************************************************************************
-# 2. На языке Python (2.7) реализовать минимум по 2 класса реализовывающих циклический буфер FIFO. 
+# 2. На языке Python реализовать минимум 2 класса реализовывающих циклический буфер FIFO. 
 # Объяснить плюсы и минусы каждой реализации.
 #***********************************************************************************************************
-# Python 2.7.13
+# Python 3
 # -*- coding: utf-8 -*-
-import time
-import collections
-
-"""
-Я не стал делать фиксированного размера, т.к. в условии они не обозначены
-1 - на обычном list, что очень тормозит работу в момент вытягивания значений в связи с последующим смещением всей очереди
-на элемент влево
-
-2 - на collections.deque, который, насколько я понимаю, реализован на C и видимо там может на уровне указателей на начало
-списка манипуляции сделаны, но, видимо, смещение не происходит, поэтому из мне на данный момент известных это самый
-быстрый вариант.
-
-Еще делал промежуточный вариант, где в рамках экземпляра класса создаются списки например по 50 элементов, если в стек
-'набилось' больше 50 элементов, то создается новый список и туда новые данные попадают, а указатели через __dict__
-показывают, из какого сейчас списка забирать данные, и куда писать новые. Тогда в теории, сокращается количество смещений
-в очереди до емкости одного списка, но громоздко получилось, и по времени оказалось хуже, чем вариант 1, 
-поэтому не стал выкладывать.
-"""
-
-class FifoStack_v1:                 # На базе обычного list
-    def __init__(self):
-        self.stack = []
-
-    def push_data(self, value):
-        self.stack.append(value)
-
-    def pull_data(self):
-        if not self.stack:
-            print 'Stack is Empty.'
-            return None
-        return self.stack.pop(0)
-
-
-class FifoStack_v2:                # На базе collections.deque
-    def __init__(self):
-        self.stack = collections.deque()
-
-    def push_data(self, value):
-        self.stack.append(value)
-
-    def pull_data(self):
-        if not self.stack:
-            print 'Stack is Empty.'
-            return None
-        return self.stack.popleft()
-
-# Для теста: очередь 100К элементов, до 10К идет только запись, потом до конца цикла чередуется push_data и pull_data
-
-
-# s1 = FifoStack_v1()
-# test_time_1 = time.time()
-# for i in range(1, 100000):
-#     s1.push_data(i)
-#     if i > 10000:
-#         s1.pull_data()
-# print'list : ', time.time() - test_time_1
-
-# s2 = FifoStack_v2()
-# test_time_2 = time.time()
-# for i in range(1, 100000):
-#      s2.push_data(i)
-#      if i > 10000:
-#          s2.pull_data()
-# print'deque : ', time.time() - test_time_2
+#import time
+#import random
+#
+# class stack_FIFO_1():
+#     """
+#     Вариант с отбросом записи новых значений, при заполнениии всех ячеек, новые значения игнорируются
+#     """
+# 
+#     def __init__(self, size):
+#         self.size = size                                # размер стека
+#         self.in_p = 0                                   # указатель на ячейку стека для записи
+#         self.out_p = 0                                  # указатель на ячейку стека для вывода
+#         self.buffer = [None for i in range(self.size)]  # тело стека, заполняем None
+#         print('Created stack with size {} elements'.format(self.size))
+# 
+# # приращение указателей с цикличностью
+#     def increment(self, pointer):
+#         if pointer < self.size - 1:
+#             return pointer + 1
+#         else:
+#             return 0
+# 
+# # помещение элемента в буфер
+#     def add_data(self, data):
+#         if self.buffer[self.in_p] is None:
+#             self.buffer[self.in_p] = data
+#             print('put new item: ', data)
+#             self.in_p = self.increment(self.in_p)
+#         else:
+#             print('stack is full, item was not added')
+# 
+# 
+#     def extract_data(self):
+#         if self.buffer[self.out_p] is not None:
+#             print('get item: {}'.format(self.buffer[self.out_p]))
+#             self.buffer[self.out_p] = None
+#             self.out_p = self.increment(self.out_p)
+#         else:
+#             print("stack is empty, data can't be extracted")
+# 
+# 
+# 
+# class stack_FIFO_2():
+#     """
+#     Вариант с перезаписью старых значений, при заполнениии всех ячеек, самые старые значения заменяются вновь входящими
+#     """
+# 
+#     def __init__(self, size):
+#         self.size = size                                # размер стека
+#         self.in_p = 0                                   # указатель на ячейку стека для записи
+#         self.out_p = 0                                  # указатель на ячейку стека для вывода
+#         self.buffer = [None for i in range(self.size)]  # тело стека, заполняем None
+#         print('Created stack with size {} elements'.format(self.size))
+# 
+# # приращение указателей с цикличностью
+#     def increment(self, pointer):
+#         if pointer < self.size - 1:
+#             return pointer + 1
+#         else:
+#             return 0
+# 
+# # помещение элемента в стек
+#     def add_data(self, data):
+#         if self.buffer[self.in_p] is None:          # если текущая ячейка на запись пуста
+#             self.buffer[self.in_p] = data
+#             print('put new item: ', data)
+#             self.in_p = self.increment(self.in_p)
+#         else:                                       # если текущая ячейка на запись имеет значение
+#             print('buffer is full, current item ({}) rewrite previous ({})'.format(data, self.buffer[self.in_p]))
+#             self.buffer[self.in_p] = data
+#             self.in_p = self.increment(self.in_p)
+#             self.out_p = self.increment(self.out_p)
+# 
+# # извлечение элемента из стека
+#     def extract_data(self):
+#         if self.buffer[self.out_p] is not None:
+#             print('get item {}'.format(self.buffer[self.out_p]))
+#             self.buffer[self.out_p] = None
+#             self.out_p = self.increment(self.out_p)
+#         else:
+#             print("stack is empty, data can't be extracted")
+# 
+# 
+# """
+# ТЕСТИРОВАНИЕ
+# """
+# 
+# s = stack_FIFO_2(10)               # для тестирования, указать, экземпляр какого класса создать
+# print(s.buffer)
+# operation_selector = [s.add_data, s.extract_data]
+# 
+# while True:
+#     try:
+#         command = random.choice(operation_selector)
+#         if command == s.add_data:
+#             data = random.randint(0, 100)
+#             s.add_data(data)
+#         else:
+#             s.extract_data()
+#         print(s.buffer)
+#         time.sleep(0.5)
+#     except KeyboardInterrupt:
+#         print('finish')
+#         break
 #***********************************************************************************************************
 
 #***********************************************************************************************************
