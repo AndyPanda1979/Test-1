@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Test2->Authorized</title>
+</head>
+<body>
+<div class="MainA">
+<div class="HeaderL"><h2>TEST2 (AUTHORIZED)</h2>
+    <p>
+        <h2>Привет</h2>
+    <h4>Вы авторизованы, {{ name }},<br>
+        и получаете данные от сервера.<br>
+    </h4>
+    </p>
+</div>
+    <div id="result"></div>
+    <script>
+if(typeof(EventSource) !== "undefined") {
+  var Source = new EventSource("/listen");
+
+  Source.addEventListener("online", function(event) {
+    data = JSON.parse(event.data)
+    document.querySelector("#result").innerText = data.text
+    }, true)
+} else {
+  document.getElementById("result").innerHTML = "Sorry, your browser does not support server-sent events...";
+}
+</script>
+    <a href="/oauth/logout" class="btn">Logout</a>
+</div>
+</body>
+</html>
