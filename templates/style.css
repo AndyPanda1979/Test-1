@@ -1,0 +1,39 @@
+h2 {
+  color: white;
+}
+
+h4 {
+  color: white;
+}
+
+.MainA{
+    width: 400px;
+    background-color: rgb(3,70,182);
+    border: 4px dotted LimeGreen;
+    padding: 10px;
+}
+
+.MainU{
+    width: 400px;
+    background-color: rgb(3,70,182);
+    border: 4px dotted red;
+    padding: 10px;
+}
+
+.HeaderL{
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-bottom: 1px white;
+    width: 400px;
+}
+
+.btn {
+    display: inline-block;
+    background: gray;
+    color: white;
+    padding: 1rem 1.5rem;
+    text-decoration: none;
+    border-radius: 3px;
+   }
