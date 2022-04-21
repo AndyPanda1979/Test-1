@@ -1,95 +1,95 @@
 import java.util.*;
 
-public class Main {
-	public static void main(String args[]) {
+
+public class Main2 {
+	
+	public static void main(String args[]) throws ValidateStringException, ValidateMethodException, ValidateArgumentsException, ValidateResultException {
 		Scanner scanner = new Scanner(System.in);
-		for (; ;) {
-			System.out.println("Введите требуемое действие и аргументы в формате A ? B");
-			System.out.println("A, B -> целые числа в диапазоне от 1 до 10, допускается ввод только арабских или только римских цифр");
-			System.out.println("? -> операция с числами, может быть +, -, *, или /");
-			System.out.println("Все вычисления целочисленные, остатки от деления игнорируются");
-			System.out.println("Для выхода из программы, введите exit");
+		showHelp();
+		while (true) {
 			String raw_data = scanner.nextLine();
 			if (raw_data.contains("exit")) {
 				System.out.println("Программа завершена");
 				break;
 			}
-			String success = calc (raw_data);
-			if (success == "failed") {
+			if (raw_data.contains("help")){
+				showHelp();
+				continue;
+			}
+			try {
+				String result = calc (raw_data);
+				System.out.println("Резльтат: " + result);
+			}
+			catch (ValidateStringException exs) {
+				System.out.println("DATA VALIDATION ERROR");
+				System.out.println(exs.getMessage() + exs.getData());
+				System.out.println("Программа завершена");
+				break;
+			}
+			catch (ValidateMethodException exm) {
+				System.out.println("METHOD VALIDATION ERROR");
+				System.out.println(exm.getMessage());
+				System.out.println("Программа завершена");
+				break;
+			}
+			catch (ValidateArgumentsException exa) {
+				System.out.println("ARGS VALIDATION ERROR");
+				System.out.println(exa.getMessage());
+				System.out.println("Программа завершена");
+				break;
+			}
+			catch (ValidateResultException exr) {
+				System.out.println("DATA OPERATION ERROR");
+				System.out.println(exr.getMessage());
+				System.out.println("Программа завершена");
 				break;
 			}
 		}
 		scanner.close();
 	}
-	
-	
-
-	public static String calc(String input) {
-		String success = "";
-		String cleaned_data = stringValidation(input);						// Валидация строки
-		if (cleaned_data == "error" ) {
-			System.out.println("DATA VALIDATION ERROR. Программа завершена");
-			success = "failed";
-		}
-		else {
-			String method = findMethods(cleaned_data);						// Вычленение методов
-			if (method == "error") {
-				System.out.println("METHOD VALIDATION ERROR. Программа завершена");
-				success = "failed";
-			}
-			else {
-				List<String> arguments = getAttrs(cleaned_data, method);  	// Вычленение операндов
-				if (arguments.contains("error")) {
-					System.out.println("ARGS VALIDATION ERROR. Программа завершена");
-					success = "failed";
-				}
-				else {
-					arguments.add(String.valueOf(method.charAt(0)));		
-					String result = calculate(arguments);					// Вычисления
-					if (result == "error") {
-						System.out.println("OPERATION ERROR. Программа завершена");
-						success = "failed";
-					}
-					else {
-						System.out.println(result);
-						success = "passed";
-					}
-				}
-			}
-		}
 		
-		return success;
+	
+	private static String calc(String raw_data) throws ValidateStringException, ValidateMethodException, ValidateArgumentsException, ValidateResultException {
+		String cleaned_data = stringValidation(raw_data);
+		String method = findMethods(cleaned_data);
+		List<String> arguments = getAttrs(cleaned_data, method);
+		String result = calculate(arguments);
+		// System.out.println("Cleaned Data = " + cleaned_data +", Method is: " + method + ", Arguments are: " + arguments);
+		return result;
+		
 	}
 	
-	
-	
-	public static String stringValidation(String raw_data) {
-	// Проверка введенной строки на наличие невалидных смволов, приведение строки к UpperCase
-		
+
+	private static String stringValidation(String raw_data) throws ValidateStringException {
+	// Проверка введенной строки на наличие невалидных символов, приведение строки к UpperCase
 		String valid_data = "0123456789IVX+-*/ ";	// элементы, допустимые на входе
 		String cleaned_data = "";					// сюда соберется строка без пробелов
+		String invalid_symbols = "";				// буфер ошибочных символов
 		String normalize_data = raw_data.toUpperCase();
 		if (raw_data.equals(normalize_data) != true) {
 			raw_data = normalize_data;
 			System.out.println("Программа принимает ПРОПИСНЫЕ символы, ваша строка преобразована в " + raw_data);
 		}
-		for (int i = 0; i <= (raw_data.length()) - 1; i++) {			// перебираем посимвольно строку на входе
+		
+		for (int i = 0; i < raw_data.length(); i++) {					// перебираем посимвольно строку на входе
 			String element = String.valueOf(raw_data.charAt(i));
 			int index = valid_data.indexOf(element);
 			if (index == -1) {											// если символ не входит в valid_data
-				System.out.println("Найден недопустимый символ: " + element);
-				return "error";
+				invalid_symbols += element + " ";
 			}
 			if (raw_data.charAt(i) != ' ') {
 				cleaned_data += element;
+				}
 			}
+		if (invalid_symbols != "") {
+			throw new ValidateStringException("При проверке ввода найдены недопустимые символы: ", invalid_symbols);
 		}
 		return cleaned_data;
 	}
 	
 	
 	
-	public static String findMethods(String raw_data) {
+	private static String findMethods(String cleaned_data) throws ValidateMethodException {
 		// Поиск операторов в строке, проверка их количества
 		
 		String [] valid_method = new String[] {"+", "-", "*", "/"};  	// типы операций, допустимые на входе
@@ -97,35 +97,33 @@ public class Main {
 		String finded_method = "";										// найденная операция
 		int method_counter = 0;											// счетчик операций
 		int method_pointer = 0;											// указатель позиции операции в строке
-		for (int i = 0; i <= valid_method.length - 1; i++) {
+		for (int i = 0; i < valid_method.length; i++) {
 			selected_method = valid_method[i];
-			int pointer = raw_data.indexOf(selected_method);
+			int pointer = cleaned_data.indexOf(selected_method);
 			if (pointer != -1) {                                 				// если нашли операцию
 				if (method_counter == 0) {
 					method_pointer = pointer;
 				}
 				method_counter += 1;
 				finded_method += selected_method;
-				if (raw_data.indexOf(selected_method, pointer + 1) != -1) {    	// проверяем, не дублируется ли она
+				if (cleaned_data.indexOf(selected_method, pointer + 1) != -1) {    	// проверяем, не дублируется ли она
 					method_counter += 1;								
 				}
 			}
 			
 		}
 		if (method_counter > 1) {
-			System.out.println("Метод должен быть только один!!");
-			return "error";
+			throw new ValidateMethodException("Метод должен быть только один, возможно, попытка ввода отрицательного числа или дроби");
 		}
 		else if (method_counter == 0) {
-			System.out.println("Не указано ни одного метода!!");
-			return "error";
+			throw new ValidateMethodException("При прверке ввода не найдено ни одного метода.");
 		}
 		return finded_method + method_pointer;
 	}
 	
 	
-	private static List<String> getAttrs(String cleaned_data, String method) {
-		// Вычленяем аргументы и проверяем правильность
+	private static List<String> getAttrs(String cleaned_data, String method) throws ValidateArgumentsException {
+		// Вычленяем аргументы и проверяем правильность их записи, определяем формат ввода (римские или арабские цифры)
 		
 		String arg1 = "";									// аргументы
 		String arg2 = "";
@@ -134,18 +132,17 @@ public class Main {
 		String arg1_error = "";								// ошибка представления числа
 		String arg2_error = "";
 		String args_type = "";								// тип аргументов
-		String target_symbols_a = "0123456789";				// для для определения типа текущего символа
+		String target_symbols_a = "0123456789";				// для определения типа текущего символа
 		ArrayList<String> arguments = new ArrayList<String>();
-		int pointer = Integer.valueOf(String.valueOf(method.charAt(1)));
+		int pointer = Integer.valueOf(String.valueOf(method.charAt(1)));  // указатель на позицию оператора в строке ввода
 		for (int i = 0; i < pointer; i++) {					// перебираем первый аргумент (до знака оператора)
 			int index = target_symbols_a.indexOf(cleaned_data.charAt(i)); 	// проверяем на принадлежность к арабским цифрам
 			if (index != -1) {
 				if (arg1_type == "") {				// если текущий символ содержит арабскую цифру, флаг ставим "А"
 					arg1_type = "A";
 				}
-				else if (arg1_type == "R") {
-					System.out.println("Неверный формат числа, смешаны арабские и римские цифры");
-					arg1_error = "error";
+				else if (arg1_type == "R") {		// сверяем с предыдущим символом (след. итерация, если флаги не совпадают, выбрасываем исключение)
+					throw new ValidateArgumentsException("Неверный формат одного из чисел, в числе смешаны арабские и римские цифры");
 				}
 											
 			}
@@ -154,23 +151,21 @@ public class Main {
 					arg1_type = "R";
 				}
 				else if (arg1_type == "A") {
-					System.out.println("Неверный формат числа, смешаны арабские и римские цифры");
-					arg1_error = "error";
+					throw new ValidateArgumentsException("Неверный формат одного из чисел, в числе смешаны арабские и римские цифры");
 				}
 				
 			}
 			arg1 += cleaned_data.charAt(i);
 		}
 		
-		for (int i = pointer + 1; i < cleaned_data.length(); i++) {  	// перебираем второй аргумент
+		for (int i = pointer + 1; i < cleaned_data.length(); i++) {  	// перебираем второй аргумент (с позиции следующей после pointer)
 			int index = target_symbols_a.indexOf(cleaned_data.charAt(i));
 			if (index != -1) {
 				if (arg2_type == "") {									// если текущий символ содержит арабскую цифру,
 					arg2_type = "A";									// и это первый символ аргумента,  флаг ставим "А"
 				}
-				else if (arg2_type == "R") {							// а если мы уже при проверке предыдущих символов
-					System.out.println("Неверный формат числа, смешаны арабские и римские цифры");
-					arg2_error = "error";								// выставляли флаг "R", то число неверно записано
+				else if (arg2_type == "R") {							// а если мы уже при проверке предыдущих символов выставляли флаг "R", то число неверно записано
+					throw new ValidateArgumentsException("Неверный формат одного из чисел, в числе смешаны арабские и римские цифры");																			
 				}
 											
 			}
@@ -179,8 +174,7 @@ public class Main {
 					arg2_type = "R";									// символом числа будет римская цифра
 				}
 				else if (arg2_type == "A") {
-					System.out.println("Неверный формат числа, смешаны арабские и римские цифры");
-					arg2_error = "error";								
+					throw new ValidateArgumentsException("Неверный формат одного из чисел, в числе смешаны арабские и римские цифры");							
 				}
 				
 			}
@@ -188,44 +182,33 @@ public class Main {
 		}
 		
 		
-		
-		if (arg1_error == "error" | arg2_error == "error") {
-			arguments.add("error");
-			return arguments;
-		}
-		
 		if (arg1 != "error" & arg2 != "error") {						// Если аргументы совпадают
 			if (arg1_type == arg2_type) {
 				args_type = arg1_type;
 			}
 			else {
-				System.out.println("Аргументы не совпадают, числа могут быть либо только римскими, либо только арабскими");
-				arguments.add("error");
-				return arguments;
+				throw new ValidateArgumentsException("Аргументы не совпадают, числа могут быть либо только римскими, либо только арабскими");
 			}
 		}
-		
-		if (args_type == "R") {											// Если флаг "R" - конвертируем римские цифры в арабские
+	
+		if (args_type == "R") {											// Если флаг типа числа "R" - конвертируем римские цифры в арабские
 			arg1 = convert_r_to_a(arg1);
 			arg2 = convert_r_to_a(arg2);
 		}
 		
-		if ((Integer.valueOf(arg1) < 1 | Integer.valueOf(arg1) > 10) | (Integer.valueOf(arg2) < 1 | Integer.valueOf(arg2) > 10)) {
-		 	System.out.println("Аргументы должны быть заданы в диапазоне от 1 до 10 (от I до X)");
-		 	arguments.add("error");
-			return arguments;
+		if ((Integer.valueOf(arg1) < 1 | Integer.valueOf(arg1) > 10) | (Integer.valueOf(arg2) < 1 | Integer.valueOf(arg2) > 10)) {  
+			throw new ValidateArgumentsException("Аргументы должны быть заданы в диапазоне от 1 до 10 (от I до X)");
 		}
 		
-		arguments.add(arg1);
+		arguments.add(arg1);				// добавляем в лист арументы
 		arguments.add(arg2);
-		arguments.add(args_type);
+		arguments.add(args_type);			// флаг A или R, какими цифрами отдавать результат
+		arguments.add(String.valueOf(method.charAt(0)));  // и символ операции над аргументами
 		return arguments;
 	}
 
 	
-	
-	
-	private static String calculate(List<String> arguments) {
+	private static String calculate(List<String> arguments) throws ValidateResultException {
 		// Расчеты
 		
 		String args_type = arguments.get(2);						// представление аргументов (римские или арабские цифры)
@@ -249,8 +232,7 @@ public class Main {
 			break;
 		}
 		if (args_type == "R" & res < 1) {
-			System.out.println("Ошибка вычисления, результат для римских чисел не может быть меньше I");
-			return "error";
+			throw new ValidateResultException("Ошибка вычисления, результат для римских чисел не может быть меньше I");
 		}
 		else {
 			if (args_type == "R") {
@@ -259,12 +241,11 @@ public class Main {
 			else {
 				result = Integer.toString(res);
 			}
-			// System.out.println(result);
 		}
 		
 		return result;
 	}
-
+	
 	
 	private static String convert_r_to_a(String raw_data) {
 		// конвертор римских чисел в арабские (до 399 / I - CCCXCIX)
@@ -300,8 +281,6 @@ public class Main {
 		s += t;
 		return Integer.toString(s);
 	}
-	
-	
 	
 	
 	private static String convert_a_to_r(int data) {
@@ -378,4 +357,54 @@ public class Main {
 		return out_data;
 	}
 	
+	
+	private static void showHelp() {
+		System.out.println("Введите требуемое действие и аргументы в формате A ? B");
+		System.out.println("A, B -> целые числа в диапазоне от 1 до 10, допускается ввод только арабских или только римских цифр");
+		System.out.println("? -> операция с числами, может быть +, -, *, или /");
+		System.out.println("Все вычисления целочисленные, остатки от деления игнорируются");
+		System.out.println("Для выхода из программы, введите exit, для повтора данной информации, введите help");
+	}
+}
+	
+
+/*--------------------------Исключения--------------------------*/
+
+
+class ValidateStringException extends Exception{
+	
+	String elem;
+	public ValidateStringException (String msg, String data) {
+		super(msg);
+		elem = data;
+	}
+	
+	public String getData() {
+		return elem;
+	}
+}
+	
+	
+class ValidateMethodException extends Exception{
+	
+	public ValidateMethodException (String msg) {
+		super(msg);
+	}
+}
+	
+
+
+class ValidateArgumentsException extends Exception{
+	
+	public ValidateArgumentsException (String msg) {
+		super(msg);
+	}
+}
+
+
+class ValidateResultException extends Exception{
+	
+	public ValidateResultException (String msg) {
+		super(msg);
+	}
 }
