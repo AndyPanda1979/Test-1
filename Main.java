@@ -135,7 +135,6 @@ public class Main {
 		String arg2_error = "";
 		String args_type = "";								// тип аргументов
 		String target_symbols_a = "0123456789";				// для для определения типа текущего символа
-		// String target_symbols_r = "IVX";					// 
 		ArrayList<String> arguments = new ArrayList<String>();
 		int pointer = Integer.valueOf(String.valueOf(method.charAt(1)));
 		for (int i = 0; i < pointer; i++) {					// перебираем первый аргумент (до знака оператора)
@@ -191,23 +190,9 @@ public class Main {
 		
 		
 		if (arg1_error == "error" | arg2_error == "error") {
-			//args_type = "error";
-			//arguments.add(arg1);
-			//arguments.add(arg2);
-			//arguments.add(args_type);
 			arguments.add("error");
 			return arguments;
 		}
-		
-		
-		
-		// if (arg1_error == "error") {									// если проверка не увенчалась успехом
-		// 	arg1 = arg1_error;											// аргументу присваевается значение "ошибочный"
-		// }
-		// if (arg2_error == "error") {
-		// 	arg2 = arg2_error;
-		// }
-		
 		
 		if (arg1 != "error" & arg2 != "error") {						// Если аргументы совпадают
 			if (arg1_type == arg2_type) {
@@ -215,19 +200,10 @@ public class Main {
 			}
 			else {
 				System.out.println("Аргументы не совпадают, числа могут быть либо только римскими, либо только арабскими");
-				//args_type = "error";
-				//arguments.add(arg1);
-				//arguments.add(arg2);
-				//arguments.add(args_type);
 				arguments.add("error");
 				return arguments;
 			}
 		}
-		//else {
-		//	System.out.println("Аргументы не совпадают, числа могут быть либо только римскими, либо только арабскими");
-		//	args_type = "error";
-		//	}
-	
 		
 		if (args_type == "R") {											// Если флаг "R" - конвертируем римские цифры в арабские
 			arg1 = convert_r_to_a(arg1);
